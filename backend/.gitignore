@@ -1,0 +1,8 @@
+.env
+firebase-adminsdk.json
+__pycache__/
+*.pyc
+venv/
+.vscode/
+*.log
+.DS_Storebackend/firebase-adminsdk.json
