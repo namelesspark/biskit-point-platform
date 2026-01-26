@@ -1,4 +1,4 @@
-<img width="4785" height="5060" alt="음성 인식 시퀀스 다이어그램" src="https://github.com/user-attachments/assets/686594d3-6d36-41f5-bde4-35d6a558f445" /># 🎓 BISKIT POINT
+# 🎓 BISKIT POINT
 
 > AI 기반 학습 플랫폼 - 금오공과대학교 DX·AX 역량 강화 프로젝트
 
