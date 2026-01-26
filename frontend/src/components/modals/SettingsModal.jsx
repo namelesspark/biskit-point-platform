@@ -1,28 +1,75 @@
 // src/components/modals/SettingsModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import { API_ENDPOINTS } from '../../config/api';
 
 function SettingsModal({ isOpen, onClose }) {
+  const { userId } = useAuth();
   const [settings, setSettings] = useState({
-    mic: false,
-    camera: false,
-    feature13: false,
-    feature14: false,
-    feature15: false,
-    feature16: false,
-    feature17: false,
-    feature18: false,
-    studentVerification: false,
-    rankingSystem: false,
-    dashboardImageSettings: false,
-    pointSystem: false,
-    pointChange: false,
+    showInRanking: true,
+    notifications: true,
+    darkMode: false
   });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && userId !== 'guest') {
+      loadSettings();
+    }
+  }, [isOpen, userId]);
+
+  const loadSettings = async () => {
+    try {
+      const res = await fetch(`${API_ENDPOINTS.USER_PROFILE}?user_id=${userId}`);
+      const data = await res.json();
+      if (data.success && data.profile) {
+        setSettings({
+          showInRanking: data.profile.showInRanking ?? true,
+          ...data.profile.settings
+        });
+      }
+    } catch (error) {
+      console.error('설정 로드 실패:', error);
+    }
+  };
 
   const handleToggle = (key) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // 랭킹 표시 설정
+      await fetch(API_ENDPOINTS.RANKING_VISIBILITY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          show_in_ranking: settings.showInRanking
+        })
+      });
+
+      // 기타 설정
+      await fetch(API_ENDPOINTS.USER_SETTINGS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          settings: {
+            notifications: settings.notifications,
+            darkMode: settings.darkMode
+          }
+        })
+      });
+
+      alert('설정이 저장되었습니다.');
+      onClose();
+    } catch (error) {
+      alert('설정 저장 실패');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -30,130 +77,49 @@ function SettingsModal({ isOpen, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content settings-modal" onClick={(e) => e.stopPropagation()}>
-        {/* 닫기 버튼 */}
         <button className="modal-close" onClick={onClose}>✕</button>
+        <h2>⚙️ 설정</h2>
 
-        {/* 제목 */}
-        <h2 className="modal-title">설정</h2>
-
-        {/* 설정 항목 리스트 */}
         <div className="settings-list">
           <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.mic}
-              onChange={() => handleToggle('mic')}
-            />
-            <label>마이크 설정</label>
+            <div className="setting-info">
+              <h4>🏆 랭킹에 내 점수 표시</h4>
+              <p>다른 사용자가 랭킹에서 내 점수를 볼 수 있습니다.</p>
+            </div>
+            <label className="toggle-switch">
+              <input type="checkbox" checked={settings.showInRanking} onChange={() => handleToggle('showInRanking')} />
+              <span className="slider"></span>
+            </label>
           </div>
 
           <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.camera}
-              onChange={() => handleToggle('camera')}
-            />
-            <label>카메라 설정</label>
+            <div className="setting-info">
+              <h4>🔔 알림</h4>
+              <p>퀴즈 알림 및 학습 리마인더를 받습니다.</p>
+            </div>
+            <label className="toggle-switch">
+              <input type="checkbox" checked={settings.notifications} onChange={() => handleToggle('notifications')} />
+              <span className="slider"></span>
+            </label>
           </div>
 
           <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.feature13}
-              onChange={() => handleToggle('feature13')}
-            />
-            <label>Feature Thirteen</label>
+            <div className="setting-info">
+              <h4>🌙 다크 모드</h4>
+              <p>어두운 테마를 사용합니다.</p>
+            </div>
+            <label className="toggle-switch">
+              <input type="checkbox" checked={settings.darkMode} onChange={() => handleToggle('darkMode')} />
+              <span className="slider"></span>
+            </label>
           </div>
+        </div>
 
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.feature14}
-              onChange={() => handleToggle('feature14')}
-            />
-            <label>Feature Fourteen</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.feature15}
-              onChange={() => handleToggle('feature15')}
-            />
-            <label>Feature Fifteen</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.feature16}
-              onChange={() => handleToggle('feature16')}
-            />
-            <label>Feature Sixteen</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.feature17}
-              onChange={() => handleToggle('feature17')}
-            />
-            <label>Feature Seventeen</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.feature18}
-              onChange={() => handleToggle('feature18')}
-            />
-            <label>Feature Eighteen</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.studentVerification}
-              onChange={() => handleToggle('studentVerification')}
-            />
-            <label>학습자 학습 판단 확인 기술</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.rankingSystem}
-              onChange={() => handleToggle('rankingSystem')}
-            />
-            <label>랭킹 시스템 → 개인 정보 조치 필요</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.dashboardImageSettings}
-              onChange={() => handleToggle('dashboardImageSettings')}
-            />
-            <label>대시보드 이미지 교체</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.pointSystem}
-              onChange={() => handleToggle('pointSystem')}
-            />
-            <label>점수 시스템</label>
-          </div>
-
-          <div className="settings-item">
-            <input 
-              type="checkbox" 
-              checked={settings.pointChange}
-              onChange={() => handleToggle('pointChange')}
-            />
-            <label>점수 반기 전, 강의 1시간에 10점</label>
-          </div>
+        <div className="settings-actions">
+          <button className="btn btn-secondary" onClick={onClose}>취소</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? '저장 중...' : '저장'}
+          </button>
         </div>
       </div>
     </div>

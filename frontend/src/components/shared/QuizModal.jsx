@@ -1,4 +1,4 @@
-// src/components/learn/QuizModal.jsx
+// src/components/shared/QuizModal.jsx
 import React, { useState } from 'react';
 
 function QuizModal({ quiz, onAnswer, onClose }) {
@@ -17,8 +17,6 @@ function QuizModal({ quiz, onAnswer, onClose }) {
     const correct = selectedAnswer === quiz.correct_answer;
     setIsCorrect(correct);
     setShowResult(true);
-
-    // 부모 컴포넌트에 결과 전달
     onAnswer(correct, selectedAnswer);
   };
 
@@ -29,10 +27,10 @@ function QuizModal({ quiz, onAnswer, onClose }) {
   };
 
   return (
-    <div className="quiz-modal-overlay">
+    <div className="modal-overlay">
       <div className="quiz-modal">
         <div className="quiz-header">
-          <h2>퀴즈 타임! 🎯</h2>
+          <h2>🎯 퀴즈 타임!</h2>
         </div>
 
         <div className="quiz-content">
@@ -47,11 +45,9 @@ function QuizModal({ quiz, onAnswer, onClose }) {
                 className={`quiz-option ${
                   selectedAnswer === index ? 'selected' : ''
                 } ${
-                  showResult && index === quiz.correct_answer
-                    ? 'correct'
-                    : showResult && selectedAnswer === index
-                    ? 'incorrect'
-                    : ''
+                  showResult && index === quiz.correct_answer ? 'correct' : ''
+                } ${
+                  showResult && selectedAnswer === index && !isCorrect ? 'incorrect' : ''
                 }`}
                 onClick={() => !showResult && setSelectedAnswer(index)}
                 disabled={showResult}
@@ -65,27 +61,25 @@ function QuizModal({ quiz, onAnswer, onClose }) {
           {showResult && (
             <div className={`quiz-result ${isCorrect ? 'correct' : 'incorrect'}`}>
               <p className="result-text">
-                {isCorrect ? '정답입니다! 🎉' : '틀렸습니다. 😢'}
+                {isCorrect ? '🎉 정답입니다!' : '😢 틀렸습니다.'}
               </p>
               {quiz.explanation && (
                 <p className="result-explanation">
                   <strong>해설:</strong> {quiz.explanation}
                 </p>
               )}
-              <p className="result-score">
-                {isCorrect ? '+10점' : '+0점'}
-              </p>
+              <p className="result-score">{isCorrect ? '+10점' : '+0점'}</p>
             </div>
           )}
         </div>
 
         <div className="quiz-footer">
           {!showResult ? (
-            <button className="quiz-submit-button" onClick={handleSubmit}>
+            <button className="btn btn-primary" onClick={handleSubmit}>
               제출하기
             </button>
           ) : (
-            <button className="quiz-next-button" onClick={handleNext}>
+            <button className="btn btn-primary" onClick={handleNext}>
               계속하기
             </button>
           )}

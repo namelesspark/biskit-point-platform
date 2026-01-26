@@ -1,95 +1,106 @@
-# 퀴즈 생성 로직
+# backend/quiz_service.py
 from openai import OpenAI
-import json, re, traceback, random
+import json
+import re
+import random
 from config import Config
 
 client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
-def calculate_quiz_time(duration, num_quizzes=5, skip_start = 600):
-    """
-    퀴즈 출제 시간 계산
-    duration: 영상 길이 (초)
-    num_quizzes: 퀴즈 개수
-    skip_start: 건너뛸 시작 시간 - 기본 10분
-    """
+
+def calculate_quiz_count(duration_seconds):
+    """영상 길이에 따른 퀴즈 개수 결정 (10분 미만: 1개 고정)"""
+    if duration_seconds < 600:  # 10분 미만
+        return 1
+    return None  # 사용자가 선택
+
+
+def calculate_quiz_times(duration, num_quizzes, skip_start=300):
+    """퀴즈 출제 시간 계산"""
     if duration <= skip_start:
-        return []
+        # 영상이 너무 짧으면 중간 지점에 1개
+        return [duration // 2]
     
-    # 퀴즈 출제 가능한 구간 계산
     quiz_window = duration - skip_start
-    if quiz_window <= 0:
-        return []
-
-    # 무작위 시간 생성
+    interval = quiz_window // (num_quizzes + 1)
+    
     quiz_times = []
-    for i in range(num_quizzes):
-        random_time = random.randint(skip_start, duration)
-        quiz_times.append(random_time)
-    quiz_times = sorted(list(set(quiz_times)))  # 중복 제거 및 정렬
-    print(f"🧠 퀴즈 출제 시간: {quiz_times}")
+    for i in range(1, num_quizzes + 1):
+        base_time = skip_start + (interval * i)
+        # ±30초 랜덤 변동
+        variation = random.randint(-30, 30)
+        quiz_time = max(skip_start, min(duration - 60, base_time + variation))
+        quiz_times.append(quiz_time)
+    
+    return sorted(list(set(quiz_times)))
 
-    return quiz_times
 
-
-def generate_quiz(transcript_text, timestamp_start=0, num_quizzes=None, timestamp_end=None): # 특정 구간의 텍스트로 퀴즈 생성 / 호출: main.py의 /api/quiz/generate
+def generate_quiz_from_segment(transcript_text, num_quizzes=1):
+    """특정 구간 텍스트로 퀴즈 생성"""
     try:
-        if num_quizzes is None:
-            num_quizzes = 5
-        print(f"🧠 퀴즈 생성 시도 중...({timestamp_start}초~ {timestamp_end}초)")
-        segmented_text = transcript_text[:1500]
-        # 프롬프트 설정
-        prompt = (
-            f"아래 강의 내용을 참고해 객관식 퀴즈 {num_quizzes}개를 꼭 정확한, 유효한 JSON 배열만으로 반환하세요. "
-            f"필수 형식: "
-            f"["
-            f'{{"question": "...", "options": ["1","2","3","4","5"], "correct_answer": 2, "explanation": "..."}},'
-            f"..."
-            f"] "
-            "JSON 배열 이외의 텍스트, 코드블록, 설명, 공백, 줄바꿈 금지! "
-            "반드시 배열 마지막에 ]로 닫으세요! "
-        )
+        # 텍스트 길이 제한
+        segmented_text = transcript_text[:2000]
         
         response = client.chat.completions.create(
             model=Config.AI_MODEL,
             messages=[
-                {"role": "system", "content": "너는 JSON 배열만 반환하는 퀴즈 생성기다. JSON 외 다른 텍스트 절대 금지."},
-                {"role": "user", "content": f"""
-                다음 강의 내용을 바탕으로 객관식 퀴즈 {num_quizzes}개를 만들어 주세요.
-                각 퀴즈는 다음 형식의 JSON 객체로 표현하세요.
-                [
-                {{"question": "...", "options": ["1", "2", "3", "4", "5"], "correct_answer": 1, "explanation": "..."}},
-                ...
-                ]
-                강의 내용:
-                {segmented_text}
-                JSON 배열로만 응답하세요.
-                """}
+                {
+                    "role": "system", 
+                    "content": "당신은 교육 전문가입니다. 학생의 개념 이해도를 평가하는 고품질 퀴즈를 만듭니다. JSON 배열만 반환하세요."
+                },
+                {
+                    "role": "user", 
+                    "content": f"""당신은 대학교 교수입니다. 아래 강의 내용을 바탕으로 학생의 **개념 이해도**를 평가하는 퀴즈를 {num_quizzes}개 만드세요.
+
+[퀴즈 작성 규칙]
+1. **개념 이해 문제**: 단순 암기(숫자, 예시)가 아닌, 원리와 개념을 이해했는지 묻는 문제
+2. **응용/추론 문제**: "왜 그런가?", "어떤 상황에서?", "무엇의 역할은?" 형태
+3. **오답 함정**: 그럴듯하지만 틀린 선택지로 개념 혼동 유도
+4. **실무 연결**: 가능하면 실제 활용 사례와 연결
+
+[피해야 할 문제 유형]
+- ❌ "영상에서 예시로 든 숫자는?" (단순 암기)
+- ❌ "몇 개의 뉴런이 있는가?" (숫자 암기)  
+- ❌ "영상에서 보여준 이미지는?" (예시 암기)
+
+[좋은 문제 예시]
+- ✅ "신경망에서 활성화 함수가 필요한 이유는?"
+- ✅ "역전파 알고리즘이 해결하는 문제는?"
+- ✅ "은닉층의 뉴런 수를 늘리면 어떤 장단점이 있는가?"
+
+[강의 내용]
+{segmented_text}
+
+[출력 형식]
+JSON 배열로만 응답:
+[{{"question": "개념 이해를 묻는 질문", "options": ["선택지1", "선택지2", "선택지3", "선택지4"], "correct_answer": 0, "explanation": "정답인 이유와 관련 개념 설명"}}]"""
+                }
             ],
             temperature=Config.AI_TEMPERATURE,
             max_tokens=Config.AI_MAX_TOKENS
         )
         
-        content = response.choices[0].message.content # 응답 내용 추출
-        print(f"📝 AI 응답:\n{content}\n")
+        content = response.choices[0].message.content
+        print(f"📝 AI 응답:\n{content[:200]}...")
 
-        match = re.search(r'(\[.*\]|\{.*\})', content, re.DOTALL)
-        if match: # JSON 형태 처리
+        # JSON 추출
+        match = re.search(r'\[.*\]', content, re.DOTALL)
+        if match:
             content = match.group(0).strip()
+        
         quizzes = json.loads(content)
-        if isinstance(quizzes, list):
-            return quizzes
-        else:
-            return [quizzes]
-
+        return quizzes if isinstance(quizzes, list) else [quizzes]
 
     except Exception as e:
         print(f"❌ 퀴즈 생성 실패: {e}")
-        traceback.print_exc()
+        return []
 
 
-def check_answer(user_answer, correct_answer): # 정답 확인 / 호출: main.py의 /api/quiz/submit
+def check_answer(user_answer, correct_answer):
+    """정답 확인"""
     return user_answer == correct_answer
 
 
-def calculate_score(is_correct): # 점수 계산 / 호출: main.py의 /api/quiz/submit
-    return 1 if is_correct else 0
+def calculate_score(is_correct):
+    """점수 계산"""
+    return 10 if is_correct else 0

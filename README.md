@@ -1,174 +1,147 @@
-# BISKIT POINT Backend
+# BISKIT POINT - AI 기반 학습 플랫폼
 
-AI 기반 YouTube 학습 플랫폼 백엔드
+금오공과대학교 DX·AX 기반 역량 강화 프로젝트
 
-## 📁 파일 구조
+## 🚀 주요 기능
+
+### 1. YouTube 학습
+- YouTube URL 입력으로 강의 시청
+- AI 자동 자막 추출 및 요약
+- 시청 시간에 따른 퀴즈 생성 (10분 미만: 1개 고정)
+- AI 학습 도우미 챗봇
+
+### 2. 업로드 강의
+- 비디오 파일 업로드
+- Whisper AI로 음성-텍스트 변환 (대용량 지원)
+- 퀴즈 및 챗봇 기능
+
+### 3. 오프라인 강의 보조
+- 실시간 음성 녹음
+- 30초 단위 실시간 텍스트 변환
+- 전체 녹취록 저장
+
+### 4. 랭킹 시스템
+- 학습 포인트 적립
+- 랭킹 표시 On/Off 설정
+
+## 📁 프로젝트 구조
 
 ```
-backend/
-├─ main.py              # Flask 메인 서버
-├─ youtube_service.py   # YouTube 자막 추출
-├─ chat_service.py      # OpenAI 챗봇
-├─ quiz_service.py      # 퀴즈 생성
-├─ config.py            # 설정 관리
-├─ .env                 # API 키 (보안 주의!)
-└─ requirements.txt     # 패키지 목록
+biskit-point-platform-main/
+├── backend/
+│   ├── main.py              # Flask 메인 서버
+│   ├── config.py            # 환경 설정
+│   ├── youtube_service.py   # YouTube 자막 추출
+│   ├── quiz_service.py      # 퀴즈 생성 (시간 기반)
+│   ├── chat_service.py      # AI 챗봇 + 요약
+│   ├── whisper_service.py   # 음성-텍스트 (대용량 지원)
+│   └── firebase_service.py  # 데이터베이스
+│
+└── frontend/
+    └── src/
+        ├── components/
+        │   ├── common/      # Header, Footer
+        │   ├── shared/      # ChatPanel, QuizModal, QuizSettings
+        │   ├── youtube/     # YouTubePlayer
+        │   ├── offline/     # AudioRecorder
+        │   └── modals/      # ProfileModal, SettingsModal
+        ├── pages/
+        │   ├── HomePage.jsx
+        │   ├── DashboardPage.jsx
+        │   ├── YouTubeLearnPage.jsx
+        │   ├── UploadLearnPage.jsx
+        │   ├── OfflineAssistPage.jsx
+        │   └── RankingPage.jsx
+        ├── hooks/           # useAuth
+        ├── config/          # firebase, api
+        └── styles/          # App.css
 ```
 
-## 🚀 설치 및 실행
+## 🛠️ 설치 및 실행
 
-### 1. 가상환경 생성
+### 1. 환경 변수 설정
+
+`.env.example`을 참고하여 `.env` 파일 생성
+
+**Backend (.env)**
+```
+OPENAI_API_KEY=your_key
+YOUTUBEDATA_API_KEY=your_key
+```
+
+**Frontend (.env)**
+```
+REACT_APP_API_URL=http://localhost:5000
+REACT_APP_FIREBASE_API_KEY=your_key
+...
+```
+
+### 2. Backend 실행
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-```
-
-### 2. 패키지 설치
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. 환경 변수 설정
-
-`.env` 파일에 API 키 입력:
-
-```env
-OPENAI_API_KEY=your_openai_api_key
-YOUTUBEDATA_API_KEY=your_youtube_api_key
-FIREBASE_API_KEY=your_firebase_api_key
-FLASK_ENV=development
-```
-
-### 4. 서버 실행
-
-```bash
+cd backend
+pip install -r ../requirements.txt
 python main.py
 ```
 
-서버 주소: `http://localhost:5000`
+서버: http://localhost:5000
 
-## 📡 API 엔드포인트
+### 3. Frontend 실행
 
-### 1. 영상 로드
-
-```http
-POST /api/video/load
-Content-Type: application/json
-
-{
-  "video_url": "https://www.youtube.com/watch?v=VIDEO_ID",
-  "user_id": "user123"
-}
+```bash
+cd frontend
+npm install
+npm start
 ```
 
-**응답:**
-```json
-{
-  "success": true,
-  "video_id": "VIDEO_ID",
-  "duration": 600,
-  "transcript_preview": "강의 내용 미리보기...",
-  "source": "youtube"
-}
+앱: http://localhost:3000
+
+## 🔧 API 엔드포인트
+
+| 엔드포인트 | 설명 |
+|-----------|------|
+| POST /api/youtube/load | YouTube 영상 로드 |
+| POST /api/youtube/summarize | AI 요약 |
+| POST /api/quiz/generate | 퀴즈 생성 (current_time 기반) |
+| POST /api/chat | AI 챗봇 |
+| POST /api/whisper/transcribe | 음성 전사 |
+| POST /api/whisper/extract | 비디오 추출+전사 |
+| GET /api/ranking/list | 랭킹 목록 |
+| POST /api/ranking/visibility | 랭킹 표시 설정 |
+
+## ✅ 해결된 문제
+
+1. **10분 미만 퀴즈**: duration < 600초면 퀴즈 1개 고정
+2. **시간 기반 퀴즈**: current_time까지의 자막으로만 퀴즈 생성
+3. **AI 요약**: 자막 전체를 AI로 요약 (기존: 일부만 표시)
+4. **대용량 비디오**: ffmpeg 압축 + 청크 분할로 25MB 제한 해결
+5. **실시간 전사**: 30초마다 청크 전송으로 실시간 텍스트 출력
+6. **랭킹 비공개**: showInRanking 설정으로 랭킹 표시 On/Off
+7. **프로필 모달**: 즐겨찾기 + 시청 기록 통합 표시
+
+## 📌 Firebase 구조
+
+```
+users/
+  {userId}/
+    displayName
+    email
+    totalPoints
+    showInRanking
+    settings/
+    bookmarks/
+      {videoId}/
+    watchedVideos/
+      {videoId}/
+
+uploadedLectures/
+  {lectureId}/
 ```
 
-### 2. 퀴즈 생성
+## 👥 팀원
 
-```http
-POST /api/quiz/generate
-Content-Type: application/json
+- 개발: [팀원 이름]
 
-{
-  "user_id": "user123",
-  "video_id": "VIDEO_ID",
-  "num_quizzes": 5
-}
-```
+---
 
-**응답:**
-```json
-{
-  "success": true,
-  "quizzes": [
-    {
-      "question": "질문 내용",
-      "options": ["1", "2", "3", "4", "5"],
-      "correct_answer": 2,
-      "explanation": "해설"
-    }
-  ]
-}
-```
-
-### 3. 퀴즈 제출
-
-```http
-POST /api/quiz/submit
-Content-Type: application/json
-
-{
-  "user_id": "user123",
-  "answer": 2,
-  "correct_answer": 2
-}
-```
-
-**응답:**
-```json
-{
-  "success": true,
-  "is_correct": true,
-  "score": 1,
-  "total_score": 5
-}
-```
-
-### 4. AI 챗봇
-
-```http
-POST /api/chat
-Content-Type: application/json
-
-{
-  "user_id": "user123",
-  "message": "이 부분이 이해가 안 돼요"
-}
-```
-
-**응답:**
-```json
-{
-  "success": true,
-  "response": "AI 응답 내용..."
-}
-```
-
-## 🛠️ 주요 기능
-
-1. **YouTube 자막 추출** - YouTube Transcript API
-2. **AI 퀴즈 생성** - OpenAI GPT-3.5
-3. **AI 챗봇** - OpenAI Chat Completion
-4. **세션 관리** - 메모리 기반 (간단 구현)
-
-## ⚠️ 주의사항
-
-1. `.env` 파일은 Git에 올리지 마세요!
-2. OpenAI API 사용량 체크 (유료)
-3. YouTube Data API 할당량 확인
-4. 프로덕션에서는 세션을 Redis 등으로 교체 필요
-
-## 🔧 트러블슈팅
-
-### CORS 에러
-- `config.py`에서 `CORS_ORIGINS` 확인
-- 프론트엔드 URL 추가
-
-### API 키 에러
-- `.env` 파일 확인
-- API 키 유효성 체크
-
-### 자막 추출 실패
-- YouTube 영상에 자막이 있는지 확인
-- 비공개 영상은 불가능
+© 2025 BISKIT POINT - 금오공과대학교
