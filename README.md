@@ -1,92 +1,114 @@
-# BISKIT POINT - AI 기반 학습 플랫폼
+<img width="4785" height="5060" alt="음성 인식 시퀀스 다이어그램" src="https://github.com/user-attachments/assets/686594d3-6d36-41f5-bde4-35d6a558f445" /># 🎓 BISKIT POINT
 
-금오공과대학교 DX·AX 기반 역량 강화 프로젝트
+> AI 기반 학습 플랫폼 - 금오공과대학교 DX·AX 역량 강화 프로젝트
 
-## 🚀 주요 기능
+YouTube 영상, 업로드 강의, 오프라인 수업을 AI가 분석하여 학습을 돕는 통합 교육 플랫폼입니다.
 
-### 1. YouTube 학습
-- YouTube URL 입력으로 강의 시청
-- AI 자동 자막 추출 및 요약
-- 시청 시간에 따른 퀴즈 생성 (10분 미만: 1개 고정)
-- AI 학습 도우미 챗봇
+---
 
-### 2. 업로드 강의
-- 비디오 파일 업로드
-- Whisper AI로 음성-텍스트 변환 (대용량 지원)
-- 퀴즈 및 챗봇 기능
+## 📋 목차
 
-### 3. 오프라인 강의 보조
-- 실시간 음성 녹음
-- 30초 단위 실시간 텍스트 변환
-- 전체 녹취록 저장
+- [주요 기능](#-주요-기능)
+- [기술 스택](#-기술-스택)
+- [시스템 아키텍처](#-시스템-아키텍처)
+- [데이터 구조](#-데이터-구조)
+- [사용자 플로우](#-사용자-플로우)
+- [API 구조](#-api-구조)
+- [실시간 음성 인식](#-실시간-음성-인식)
+- [설치 및 실행](#-설치-및-실행)
+- [환경 변수 설정](#-환경-변수-설정)
+- [팀 정보](#-팀-정보)
 
-### 4. 랭킹 시스템
-- 학습 포인트 적립
-- 랭킹 표시 On/Off 설정
+---
 
-## 📁 프로젝트 구조
+## ✨ 주요 기능
 
-```
-biskit-point-platform-main/
-├── backend/
-│   ├── main.py              # Flask 메인 서버
-│   ├── config.py            # 환경 설정
-│   ├── youtube_service.py   # YouTube 자막 추출
-│   ├── quiz_service.py      # 퀴즈 생성 (시간 기반)
-│   ├── chat_service.py      # AI 챗봇 + 요약
-│   ├── whisper_service.py   # 음성-텍스트 (대용량 지원)
-│   └── firebase_service.py  # 데이터베이스
-│
-└── frontend/
-    └── src/
-        ├── components/
-        │   ├── common/      # Header, Footer
-        │   ├── shared/      # ChatPanel, QuizModal, QuizSettings
-        │   ├── youtube/     # YouTubePlayer
-        │   ├── offline/     # AudioRecorder
-        │   └── modals/      # ProfileModal, SettingsModal
-        ├── pages/
-        │   ├── HomePage.jsx
-        │   ├── DashboardPage.jsx
-        │   ├── YouTubeLearnPage.jsx
-        │   ├── UploadLearnPage.jsx
-        │   ├── OfflineAssistPage.jsx
-        │   └── RankingPage.jsx
-        ├── hooks/           # useAuth
-        ├── config/          # firebase, api
-        └── styles/          # App.css
-```
+### 🎯 4가지 학습 모드
 
-## 🛠️ 설치 및 실행
+| 모드 | 설명 |
+|------|------|
+| 📺 **YouTube 학습** | YouTube URL 입력 → 자막 추출 → AI 튜터 질문 |
+| 📁 **파일 업로드** | 동영상 업로드 → Whisper 음성 변환 → AI 학습 |
+| 🎙️ **오프라인 보조** | 실시간 음성 녹음 → 5초 간격 텍스트 변환 |
+| 📚 **강의 목록** | 관리자 업로드 강의 시청 및 학습 |
 
-### 1. 환경 변수 설정
+### 🤖 AI 기능
 
-`.env.example`을 참고하여 `.env` 파일 생성
+- **AI 튜터 챗봇**: 강의 내용 기반 질의응답
+- **자동 퀴즈 생성**: 학습 내용 기반 퀴즈 자동 생성
+- **음성 인식**: OpenAI Whisper 기반 실시간 변환
+- **요약 생성**: 강의 내용 AI 요약
 
-**Backend (.env)**
-```
-OPENAI_API_KEY=your_key
-YOUTUBEDATA_API_KEY=your_key
-```
+### 👥 커뮤니티 기능
 
-**Frontend (.env)**
-```
-REACT_APP_API_URL=http://localhost:5000
-REACT_APP_FIREBASE_API_KEY=your_key
-...
-```
+- **랭킹 시스템**: 포인트 기반 학습자 순위
+- **쪽지 기능**: 사용자 간 1:1 메시지
+- **커뮤니티 게시판**: 학습 정보 공유
 
-### 2. Backend 실행
+---
 
-```bash
-cd backend
-pip install -r ../requirements.txt
-python main.py
-```
+## 🛠 기술 스택
+<img width="3903" height="1974" alt="기술 스택" src="https://github.com/user-attachments/assets/487fa549-0c82-4a20-8e32-3a4c1275746c" />
 
-서버: http://localhost:5000
 
-### 3. Frontend 실행
+---
+
+## 🏗 시스템 아키텍처
+<img width="6416" height="3639" alt="시스템 아키텍처" src="https://github.com/user-attachments/assets/465df727-773b-4b5d-a601-a14860f4c5ce" />
+
+
+
+---
+
+## 💾 데이터 구조
+<img width="8191" height="3874" alt="데이터 구조" src="https://github.com/user-attachments/assets/0d62c0df-42bf-4c01-9103-6043d9a3dfb3" />
+
+
+---
+
+## 🔄 사용자 플로우
+<img width="6732" height="1980" alt="사용자 학습 플로우" src="https://github.com/user-attachments/assets/4d573003-c006-4110-8150-dc055180b617" />
+
+
+---
+
+## 🔌 API 구조
+<img width="8192" height="1339" alt="APi 엔트리 구조" src="https://github.com/user-attachments/assets/7d2cfa2e-adf2-4a31-927b-35c8fd9e01a1" />
+
+
+---
+
+
+### 주요 엔드포인트
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | `/api/youtube/load` | YouTube 영상 로드 및 자막 추출 |
+| POST | `/api/chat` | AI 튜터 대화 |
+| POST | `/api/quiz/generate` | 퀴즈 자동 생성 |
+| POST | `/api/whisper/transcribe` | 실시간 음성 변환 |
+| POST | `/api/whisper/extract` | 비디오 음성 추출 |
+| GET | `/api/ranking/list` | 랭킹 목록 조회 |
+| POST | `/api/messages/send` | 쪽지 보내기 |
+
+---
+
+## 🎙 실시간 음성 인식
+<img width="4785" height="5060" alt="음성 인식 시퀀스 다이어그램" src="https://github.com/user-attachments/assets/22d5f029-84e5-4f4f-84ef-523791459b9c" />
+
+
+---
+
+## 🚀 설치 및 실행
+
+### 요구 사항
+
+- Node.js 18+
+- Python 3.10+
+- ffmpeg
+- Firebase 프로젝트
+
+### Frontend 설치
 
 ```bash
 cd frontend
@@ -94,48 +116,102 @@ npm install
 npm start
 ```
 
-앱: http://localhost:3000
+### Backend 설치
 
-## 🔧 API 엔드포인트
-
-| 엔드포인트 | 설명 |
-|-----------|------|
-| POST /api/youtube/load | YouTube 영상 로드 |
-| POST /api/youtube/summarize | AI 요약 |
-| POST /api/quiz/generate | 퀴즈 생성 (current_time 기반) |
-| POST /api/chat | AI 챗봇 |
-| POST /api/whisper/transcribe | 음성 전사 |
-| POST /api/whisper/extract | 비디오 추출+전사 |
-| GET /api/ranking/list | 랭킹 목록 |
-| POST /api/ranking/visibility | 랭킹 표시 설정 |
-
-## ✅ 해결된 문제
-
-1. **10분 미만 퀴즈**: duration < 600초면 퀴즈 1개 고정
-2. **시간 기반 퀴즈**: current_time까지의 자막으로만 퀴즈 생성
-3. **AI 요약**: 자막 전체를 AI로 요약 (기존: 일부만 표시)
-4. **대용량 비디오**: ffmpeg 압축 + 청크 분할로 25MB 제한 해결
-5. **실시간 전사**: 30초마다 청크 전송으로 실시간 텍스트 출력
-6. **랭킹 비공개**: showInRanking 설정으로 랭킹 표시 On/Off
-7. **프로필 모달**: 즐겨찾기 + 시청 기록 통합 표시
-
-## 📌 Firebase 구조
-
-```
-users/
-  {userId}/
-    displayName
-    email
-    totalPoints
-    showInRanking
-    settings/
-    bookmarks/
-      {videoId}/
-    watchedVideos/
-      {videoId}/
-
-uploadedLectures/
-  {lectureId}/
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
 ```
 
-© 2025 BISKIT POINT - 금오공과대학교
+### ffmpeg 설치
+
+```bash
+# Ubuntu
+sudo apt install ffmpeg -y
+
+# macOS
+brew install ffmpeg
+
+# Windows
+# https://ffmpeg.org/download.html 에서 다운로드
+```
+
+---
+
+## ⚙ 환경 변수 설정
+
+### Backend (.env)
+
+```env
+OPENAI_API_KEY=your_openai_api_key
+FLASK_DEBUG=True
+```
+
+### Frontend (.env)
+
+```env
+REACT_APP_API_URL=http://localhost:5000
+REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+```
+
+### Firebase Admin SDK
+
+`backend/firebase-adminsdk.json` 파일에 Firebase Admin SDK 키 저장
+
+---
+
+## 📁 프로젝트 구조
+
+```
+biskit-point/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── common/        # Header, Footer
+│   │   │   ├── modals/        # ProfileModal, MessageModal
+│   │   │   ├── shared/        # ChatPanel, QuizModal
+│   │   │   └── offline/       # AudioRecorder
+│   │   ├── pages/             # 12개 페이지
+│   │   ├── config/            # api.js, firebase.js
+│   │   ├── hooks/             # useAuth.js
+│   │   └── styles/            # App.css
+│   └── package.json
+├── backend/
+│   ├── main.py                # Flask 서버
+│   ├── youtube_service.py     # YouTube 자막 추출
+│   ├── whisper_service.py     # 음성 인식
+│   ├── chat_service.py        # AI 챗봇
+│   ├── quiz_service.py        # 퀴즈 생성
+│   ├── firebase_service.py    # Firebase 연동
+│   ├── config.py              # 설정
+│   └── requirements.txt
+└── README.md
+```
+
+---
+
+## 👥 팀 정보
+
+**금오공과대학교 2025학년도 DX·AX 기반 역량 강화 프로젝트**
+
+
+---
+
+## 📄 라이선스
+
+이 프로젝트는 금오공과대학교 교내 프로젝트로 개발되었습니다.
+
+---
+
+<p align="center">
+  <b>🎓 BISKIT POINT - AI와 함께하는 스마트 학습</b><br>
+  금오공과대학교 교수학습혁신센터
+</p>
