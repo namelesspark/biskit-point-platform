@@ -18,12 +18,15 @@ function OfflineAssistPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [sessionSet, setSessionSet] = useState(false);
   
-  const transcriptEndRef = useRef(null);
-
-  // 녹취록 변경 시 자동 스크롤
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [fullTranscript]);
+  // 저장 모달 관련
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveTitle, setSaveTitle] = useState('');
+  const [saveSubject, setSaveSubject] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // 저장된 녹취록 목록
+  const [savedTranscripts, setSavedTranscripts] = useState([]);
+  const [showTranscriptList, setShowTranscriptList] = useState(false);
 
   // 녹취록이 일정 길이 이상이면 세션 설정
   useEffect(() => {
@@ -31,6 +34,25 @@ function OfflineAssistPage() {
       setSession();
     }
   }, [fullTranscript, sessionSet]);
+
+  // 저장된 녹취록 목록 로드
+  useEffect(() => {
+    if (userId && userId !== 'guest') {
+      loadSavedTranscripts();
+    }
+  }, [userId]);
+
+  const loadSavedTranscripts = async () => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.OFFLINE_TRANSCRIPTS_LIST}?user_id=${userId}`);
+      const data = await response.json();
+      if (data.success) {
+        setSavedTranscripts(data.transcripts);
+      }
+    } catch (error) {
+      console.error('녹취록 목록 로드 실패:', error);
+    }
+  };
 
   const setSession = async () => {
     try {
@@ -50,7 +72,7 @@ function OfflineAssistPage() {
   };
 
   const handleTranscriptUpdate = (newText) => {
-    setFullTranscript(prev => prev + newText);
+    setFullTranscript(newText);
   };
 
   const generateQuiz = async () => {
@@ -59,9 +81,7 @@ function OfflineAssistPage() {
       return;
     }
 
-    // 세션 먼저 설정
     await setSession();
-
     setIsGenerating(true);
     try {
       const response = await fetch(API_ENDPOINTS.QUIZ_GENERATE, {
@@ -117,6 +137,87 @@ function OfflineAssistPage() {
     URL.revokeObjectURL(url);
   };
 
+  // 녹취록 저장
+  const handleSaveTranscript = async () => {
+    if (!saveTitle.trim()) {
+      alert('제목을 입력해주세요.');
+      return;
+    }
+    if (userId === 'guest') {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.OFFLINE_TRANSCRIPTS_SAVE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          title: saveTitle,
+          content: fullTranscript,
+          subject: saveSubject
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('녹취록이 저장되었습니다!');
+        setShowSaveModal(false);
+        setSaveTitle('');
+        setSaveSubject('');
+        loadSavedTranscripts();
+      } else {
+        alert(data.error || '저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('저장 실패:', error);
+      alert('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 저장된 녹취록 불러오기
+  const loadTranscript = async (transcriptId) => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.OFFLINE_TRANSCRIPTS_GET}?transcript_id=${transcriptId}`);
+      const data = await response.json();
+      if (data.success) {
+        setFullTranscript(data.transcript.content);
+        setShowTranscriptList(false);
+        setSessionSet(false); // 세션 재설정 필요
+        alert('녹취록을 불러왔습니다.');
+      }
+    } catch (error) {
+      console.error('불러오기 실패:', error);
+    }
+  };
+
+  // 저장된 녹취록 삭제
+  const deleteTranscript = async (transcriptId) => {
+    if (!window.confirm('정말 삭제하시겠습니까?')) return;
+    
+    try {
+      const response = await fetch(API_ENDPOINTS.OFFLINE_TRANSCRIPTS_DELETE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          transcript_id: transcriptId
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        loadSavedTranscripts();
+      }
+    } catch (error) {
+      console.error('삭제 실패:', error);
+    }
+  };
+
   return (
     <div className="offline-assist-page">
       <Header variant="dashboard" />
@@ -129,6 +230,40 @@ function OfflineAssistPage() {
 
         <div className="offline-layout">
           <div className="left-section">
+            {/* 저장된 녹취록 버튼 */}
+            <div className="saved-transcripts-toggle">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowTranscriptList(!showTranscriptList)}
+              >
+                📁 내 녹취록 ({savedTranscripts.length})
+              </button>
+            </div>
+
+            {/* 저장된 녹취록 목록 */}
+            {showTranscriptList && (
+              <div className="saved-transcripts-list">
+                <h4>📁 저장된 녹취록</h4>
+                {savedTranscripts.length === 0 ? (
+                  <p className="empty-message">저장된 녹취록이 없습니다.</p>
+                ) : (
+                  <ul>
+                    {savedTranscripts.map((t) => (
+                      <li key={t.id} className="transcript-item">
+                        <div className="transcript-info" onClick={() => loadTranscript(t.id)}>
+                          <strong>{t.title}</strong>
+                          {t.subject && <span className="subject-badge">{t.subject}</span>}
+                          <span className="date">{new Date(t.createdAt).toLocaleDateString()}</span>
+                          <span className="char-count">{t.charCount}자</span>
+                        </div>
+                        <button className="delete-btn" onClick={() => deleteTranscript(t.id)}>🗑️</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             <AudioRecorder onTranscriptUpdate={handleTranscriptUpdate} />
             
             {fullTranscript && (
@@ -140,7 +275,14 @@ function OfflineAssistPage() {
                       📋 복사
                     </button>
                     <button className="btn btn-secondary" onClick={downloadTranscript}>
-                      💾 저장
+                      ⬇️ 다운로드
+                    </button>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => setShowSaveModal(true)}
+                      disabled={fullTranscript.length < 50}
+                    >
+                      💾 저장하기
                     </button>
                     <button 
                       className="btn btn-primary" 
@@ -153,7 +295,6 @@ function OfflineAssistPage() {
                 </div>
                 <div className="full-transcript-content">
                   {fullTranscript}
-                  <div ref={transcriptEndRef} />
                 </div>
                 <div className="transcript-info">
                   <span>{fullTranscript.length}자</span>
@@ -176,6 +317,57 @@ function OfflineAssistPage() {
           </div>
         </div>
       </main>
+
+      {/* 저장 모달 */}
+      {showSaveModal && (
+        <div className="modal-overlay" onClick={() => setShowSaveModal(false)}>
+          <div className="modal-content save-transcript-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowSaveModal(false)}>✕</button>
+            <h2>💾 녹취록 저장</h2>
+            
+            <div className="form-group">
+              <label>제목 *</label>
+              <input
+                type="text"
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+                placeholder="예: 병렬프로그래밍 3주차"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label>과목 (선택)</label>
+              <select value={saveSubject} onChange={(e) => setSaveSubject(e.target.value)}>
+                <option value="">선택 안 함</option>
+                <option value="병렬프로그래밍">병렬프로그래밍</option>
+                <option value="컴퓨터그래픽스">컴퓨터그래픽스</option>
+                <option value="오픈소스프로젝트">오픈소스프로젝트</option>
+                <option value="강화학습">강화학습</option>
+                <option value="임베디드시스템">임베디드시스템</option>
+                <option value="디지털공학">디지털공학</option>
+                <option value="기타">기타</option>
+              </select>
+            </div>
+            
+            <div className="form-info">
+              <p>📝 {fullTranscript.length}자 저장 예정</p>
+            </div>
+            
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowSaveModal(false)}>
+                취소
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSaveTranscript}
+                disabled={isSaving || !saveTitle.trim()}
+              >
+                {isSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showQuiz && quizzes[currentQuizIndex] && (
         <QuizModal 

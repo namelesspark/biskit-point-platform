@@ -18,15 +18,32 @@ function SettingsModal({ isOpen, onClose }) {
     }
   }, [isOpen, userId]);
 
+  // ★ 다크모드 초기 로드 (페이지 로드 시)
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+    if (savedDarkMode) {
+      document.body.classList.add('dark-mode');
+      setSettings(prev => ({ ...prev, darkMode: true }));
+    }
+  }, []);
+
   const loadSettings = async () => {
     try {
       const res = await fetch(`${API_ENDPOINTS.USER_PROFILE}?user_id=${userId}`);
       const data = await res.json();
       if (data.success && data.profile) {
-        setSettings({
+        const loadedSettings = {
           showInRanking: data.profile.showInRanking ?? true,
-          ...data.profile.settings
-        });
+          notifications: data.profile.settings?.notifications ?? true,
+          darkMode: data.profile.settings?.darkMode ?? false
+        };
+        setSettings(loadedSettings);
+        
+        // ★ 다크모드 즉시 적용
+        if (loadedSettings.darkMode) {
+          document.body.classList.add('dark-mode');
+          localStorage.setItem('darkMode', 'true');
+        }
       }
     } catch (error) {
       console.error('설정 로드 실패:', error);
@@ -34,7 +51,19 @@ function SettingsModal({ isOpen, onClose }) {
   };
 
   const handleToggle = (key) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+    const newValue = !settings[key];
+    setSettings(prev => ({ ...prev, [key]: newValue }));
+    
+    // ★ 다크모드 즉시 적용
+    if (key === 'darkMode') {
+      if (newValue) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('darkMode', 'true');
+      } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', 'false');
+      }
+    }
   };
 
   const handleSave = async () => {

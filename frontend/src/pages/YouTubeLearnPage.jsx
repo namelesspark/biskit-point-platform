@@ -14,7 +14,7 @@ function YouTubeLearnPage() {
   const { userId } = useAuth();
   
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [videoId, setVideoId] = useState(urlVideoId || null);
+  const [videoId, setVideoId] = useState(null);
   const [videoData, setVideoData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState('');
@@ -55,6 +55,19 @@ function YouTubeLearnPage() {
   const showQuizRef = useRef(false);
   const answeredQuizTimesRef = useRef([]);
 
+  // ★ URL 파라미터로 영상 ID가 전달된 경우 자동 로드
+  useEffect(() => {
+    if (urlVideoId && !videoId) {
+      console.log('🎬 URL에서 videoId 감지:', urlVideoId);
+      const fullUrl = `https://www.youtube.com/watch?v=${urlVideoId}`;
+      setYoutubeUrl(fullUrl);
+      // 약간의 딜레이 후 로드 (상태 업데이트 대기)
+      setTimeout(() => {
+        loadVideoById(urlVideoId);
+      }, 100);
+    }
+  }, [urlVideoId]);
+
   // ★ state 변경 시 ref 동기화
   useEffect(() => {
     quizTimesRef.current = quizTimes;
@@ -86,30 +99,26 @@ function YouTubeLearnPage() {
     return match ? match[1] : null;
   };
 
-  const loadVideo = async () => {
-    console.log('🎬 loadVideo 호출됨, URL:', youtubeUrl);
-
-    const id = extractVideoId(youtubeUrl);
-    console.log('🎬 추출된 videoId:', id);
-    if (!id) {
-      alert('올바른 YouTube URL을 입력해주세요.');
-      return;
-    }
-
+  // ★ videoId로 직접 로드하는 함수 추가
+  const loadVideoById = async (vId) => {
+    console.log('🎬 loadVideoById 호출됨, videoId:', vId);
+    
     setLoading(true);
-    console.log('🎬 API 요청 시작');
     try {
       const response = await fetch(API_ENDPOINTS.YOUTUBE_LOAD, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_url: youtubeUrl, user_id: userId })
+        body: JSON.stringify({ 
+          video_url: `https://www.youtube.com/watch?v=${vId}`, 
+          user_id: userId 
+        })
       });
 
       const data = await response.json();
       if (!data.success) throw new Error(data.error);
 
       setVideoData(data);
-      setVideoId(id);
+      setVideoId(vId);
       setAlreadyWatched(data.already_watched || false);
       
       const numQuizzes = data.duration < 600 ? 1 : 5;
@@ -124,7 +133,7 @@ function YouTubeLearnPage() {
         console.log('📅 퀴즈 예정 시간:', times.map(t => `${Math.floor(t/60)}분 ${t%60}초`));
       }
       
-      checkBookmarkStatus(id);
+      checkBookmarkStatus(vId);
       loadSummary();
       
     } catch (error) {
@@ -132,6 +141,19 @@ function YouTubeLearnPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadVideo = async () => {
+    console.log('🎬 loadVideo 호출됨, URL:', youtubeUrl);
+
+    const id = extractVideoId(youtubeUrl);
+    console.log('🎬 추출된 videoId:', id);
+    if (!id) {
+      alert('올바른 YouTube URL을 입력해주세요.');
+      return;
+    }
+
+    await loadVideoById(id);
   };
 
   const checkBookmarkStatus = async (vId) => {
@@ -246,27 +268,25 @@ function YouTubeLearnPage() {
     }
   }, [userId]);
 
-  // ★ 시간 업데이트 - ref로 최신값 참조
+  // ★ 시간 업데이트 핸들러 (ref에서 최신값 읽기)
   const handleTimeUpdate = useCallback((time) => {
     setCurrentTime(time);
     
-    // ref에서 최신값 가져오기
-    const currentQuizTimes = quizTimesRef.current;
+    // ref에서 최신값 읽기
     const currentQuizEnabled = quizEnabledRef.current;
+    const currentQuizTimes = quizTimesRef.current;
     const currentIsGenerating = isGeneratingQuizRef.current;
     const currentAlreadyWatched = alreadyWatchedRef.current;
     const currentShowQuiz = showQuizRef.current;
     const currentAnsweredQuizTimes = answeredQuizTimesRef.current;
     
-    // 디버그 로그 (10초마다)
-    if (Math.floor(time) % 10 === 0) {
-      console.log('📍 퀴즈체크:', {
-        time: Math.floor(time),
-        quizEnabled: currentQuizEnabled,
-        quizTimesLen: currentQuizTimes.length,
-        firstQuizTime: currentQuizTimes[0],
-        isGenerating: currentIsGenerating,
-        alreadyWatched: currentAlreadyWatched,
+    if (time % 30 === 0) {
+      console.log('⏱️ 시간 체크:', {
+        time,
+        quizTimes: currentQuizTimes,
+        answered: currentAnsweredQuizTimes,
+        enabled: currentQuizEnabled,
+        generating: currentIsGenerating,
         showQuiz: currentShowQuiz
       });
     }

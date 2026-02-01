@@ -1,6 +1,5 @@
 // src/pages/UploadLearnPage.jsx
 import React, { useState, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import ChatPanel from '../components/shared/ChatPanel';
@@ -9,7 +8,6 @@ import { useAuth } from '../hooks/useAuth';
 import { API_ENDPOINTS } from '../config/api';
 
 function UploadLearnPage() {
-  const { lectureId } = useParams();
   const { userId } = useAuth();
   
   const [videoFile, setVideoFile] = useState(null);
@@ -29,7 +27,6 @@ function UploadLearnPage() {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   
   // 시청 관련
-  const [currentTime, setCurrentTime] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [alreadyWatched, setAlreadyWatched] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
@@ -40,8 +37,8 @@ function UploadLearnPage() {
   const videoRef = useRef(null);
   const lastCheckedTimeRef = useRef(0);
 
-  // 파일 업로드
-  const handleFileUpload = async (e) => {
+  // 파일 선택 핸들러
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -52,8 +49,6 @@ function UploadLearnPage() {
 
     setVideoFile(file);
     setVideoUrl(URL.createObjectURL(file));
-    
-    // Whisper로 텍스트 추출
     await extractTranscript(file);
   };
 
@@ -79,11 +74,6 @@ function UploadLearnPage() {
       if (data.success) {
         setTranscript(data.transcript);
         setProgress('');
-        
-        // 퀴즈 스케줄 생성
-        if (quizEnabled && duration > 0) {
-          scheduleQuizzes();
-        }
       } else {
         throw new Error(data.error);
       }
@@ -100,14 +90,13 @@ function UploadLearnPage() {
     const videoDuration = Math.floor(e.target.duration);
     setDuration(videoDuration);
     
-    // 퀴즈 스케줄 생성
     if (quizEnabled && transcript) {
       scheduleQuizzes(videoDuration);
     }
   };
 
   // 퀴즈 스케줄 생성
-  const scheduleQuizzes = async (videoDuration = duration) => {
+  const scheduleQuizzes = async (videoDuration) => {
     if (!quizEnabled || videoDuration <= 0) return;
     
     try {
@@ -123,7 +112,6 @@ function UploadLearnPage() {
       const data = await response.json();
       if (data.success) {
         setQuizTimes(data.quiz_times);
-        console.log('📅 업로드 퀴즈 스케줄:', data.quiz_times);
       }
     } catch (error) {
       console.error('퀴즈 스케줄 실패:', error);
@@ -135,7 +123,6 @@ function UploadLearnPage() {
     if (!videoRef.current) return;
     
     const time = videoRef.current.currentTime;
-    setCurrentTime(time);
     
     if (!quizEnabled || !transcript || quizTimes.length === 0 || isGeneratingQuiz || alreadyWatched) return;
     
@@ -277,25 +264,36 @@ function UploadLearnPage() {
       <main className="learn-content">
         <h1 className="page-title">📁 업로드 강의 학습</h1>
 
-        {/* 파일 업로드 */}
-        {!videoUrl && (
+        {/* 파일 업로드 영역 - 비디오가 없을 때만 표시 */}
+        {!videoUrl && !loading && (
           <div className="upload-section">
-            <label className="upload-area" htmlFor="video-upload">
-              <div className="upload-icon">📁</div>
-              <p>비디오 파일을 선택하거나 드래그하세요</p>
-              <p className="upload-hint">MP4, MOV, AVI 등 지원</p>
-              <input id="video-upload" type="file" accept="video/*" onChange={handleFileUpload} style={{ display: 'none' }} />
-            </label>
+            <div 
+              className="upload-dropzone"
+              onClick={() => document.getElementById('video-file-input').click()}
+            >
+              <div className="dropzone-icon">📂</div>
+              <p className="dropzone-text">비디오 파일을 선택하거나 드래그하세요</p>
+              <p className="dropzone-hint">MP4, MOV, AVI 등 지원</p>
+              <input 
+                id="video-file-input" 
+                type="file" 
+                accept="video/*" 
+                onChange={handleFileSelect} 
+                hidden 
+              />
+            </div>
           </div>
         )}
 
+        {/* 로딩 상태 */}
         {loading && (
-          <div className="loading-state">
+          <div className="upload-loading">
             <div className="spinner"></div>
             <p>{progress}</p>
           </div>
         )}
 
+        {/* 비디오 로드됨 */}
         {videoUrl && !loading && (
           <>
             {alreadyWatched && (
@@ -308,8 +306,19 @@ function UploadLearnPage() {
               <div className="quiz-toggle-section">
                 <span className="toggle-label">🧠 퀴즈 모드</span>
                 <div className="toggle-buttons">
-                  <button className={`toggle-btn ${quizEnabled ? 'active' : ''}`} onClick={() => setQuizEnabled(true)} disabled={alreadyWatched}>ON</button>
-                  <button className={`toggle-btn ${!quizEnabled ? 'active' : ''}`} onClick={() => setQuizEnabled(false)}>OFF</button>
+                  <button 
+                    className={`toggle-btn ${quizEnabled ? 'active' : ''}`} 
+                    onClick={() => setQuizEnabled(true)} 
+                    disabled={alreadyWatched}
+                  >
+                    ON
+                  </button>
+                  <button 
+                    className={`toggle-btn ${!quizEnabled ? 'active' : ''}`} 
+                    onClick={() => setQuizEnabled(false)}
+                  >
+                    OFF
+                  </button>
                 </div>
                 {quizEnabled && duration > 0 && !alreadyWatched && (
                   <span className="quiz-info">
@@ -331,7 +340,10 @@ function UploadLearnPage() {
                   onEnded={handleVideoEnd}
                 />
                 <div className="video-actions">
-                  <button className={`bookmark-btn ${isBookmarked ? 'active' : ''}`} onClick={handleBookmark}>
+                  <button 
+                    className={`bookmark-btn ${isBookmarked ? 'active' : ''}`} 
+                    onClick={handleBookmark}
+                  >
                     {isBookmarked ? '⭐ 즐겨찾기 해제' : '☆ 즐겨찾기 추가'}
                   </button>
                   <div className="score-display">
@@ -358,13 +370,6 @@ function UploadLearnPage() {
               </div>
             )}
           </>
-        )}
-
-        {!videoUrl && !loading && (
-          <div className="empty-state">
-            <div className="empty-icon">📁</div>
-            <p>비디오 파일을 업로드하세요.</p>
-          </div>
         )}
       </main>
 

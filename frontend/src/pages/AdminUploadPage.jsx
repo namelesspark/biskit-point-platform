@@ -17,14 +17,51 @@ function AdminUploadPage() {
   const [description, setDescription] = useState('');
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
   const [transcript, setTranscript] = useState('');
   const [extractingTranscript, setExtractingTranscript] = useState(false);
+  const [duration, setDuration] = useState(0);
 
-  // 관리자 체크 (간단한 예시 - 실제로는 Firebase Rules나 백엔드에서 검증)
   const isAdmin = user?.email === 'admin@biskit.com' || user?.email?.endsWith('@kumoh.ac.kr') || user?.email === 'jade.lake8852@gmail.com';
+
+  // 비디오에서 썸네일 자동 추출
+  const extractThumbnail = (file) => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      
+      video.onloadedmetadata = () => {
+        setDuration(Math.floor(video.duration));
+        // 5초 또는 영상 길이의 10% 지점으로 이동
+        video.currentTime = Math.min(5, video.duration * 0.1);
+      };
+      
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const thumbFile = new File([blob], `thumb_${file.name}.jpg`, { type: 'image/jpeg' });
+            setThumbnailFile(thumbFile);
+            setThumbnailPreview(URL.createObjectURL(blob));
+          }
+          URL.revokeObjectURL(video.src);
+          resolve();
+        }, 'image/jpeg', 0.8);
+      };
+      
+      video.src = URL.createObjectURL(file);
+    });
+  };
 
   const handleVideoSelect = async (e) => {
     const file = e.target.files[0];
@@ -35,15 +72,28 @@ function AdminUploadPage() {
     }
     setVideoFile(file);
     
+    // 썸네일 자동 추출
+    setStatus('썸네일 추출 중...');
+    await extractThumbnail(file);
+    setStatus('썸네일 추출 완료!');
+    
     // Whisper로 텍스트 추출
     if (window.confirm('영상에서 자동으로 자막을 추출하시겠습니까?\n(시간이 걸릴 수 있습니다)')) {
       await extractTranscript(file);
     }
   };
 
+  // 수동 썸네일 선택 (자동 추출 덮어쓰기)
+  const handleThumbnailSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setThumbnailFile(file);
+    setThumbnailPreview(URL.createObjectURL(file));
+  };
+
   const extractTranscript = async (file) => {
     setExtractingTranscript(true);
-    setStatus('Whisper AI로 텍스트 추출 중...');
+    setStatus('Whisper AI로 텍스트 추출 중');
     try {
       const formData = new FormData();
       formData.append('video', file);
@@ -87,7 +137,7 @@ function AdminUploadPage() {
         );
       });
 
-      // 2. 썸네일 업로드 (있는 경우)
+      // 2. 썸네일 업로드
       let thumbnailUrl = '';
       if (thumbnailFile) {
         setStatus('썸네일 업로드 중...');
@@ -98,13 +148,6 @@ function AdminUploadPage() {
 
       // 3. Firestore에 강의 정보 저장
       setStatus('강의 정보 저장 중...');
-      
-      // 비디오 길이 계산
-      const video = document.createElement('video');
-      video.src = URL.createObjectURL(videoFile);
-      const duration = await new Promise(resolve => {
-        video.onloadedmetadata = () => resolve(Math.floor(video.duration));
-      });
 
       await addDoc(collection(db, 'lectures'), {
         title: title.trim(),
@@ -176,14 +219,20 @@ function AdminUploadPage() {
                 {videoFile ? `📁 ${videoFile.name}` : '비디오 파일 선택'}
               </label>
             </div>
+            {duration > 0 && <span className="file-info">길이: {Math.floor(duration / 60)}분 {duration % 60}초</span>}
           </div>
 
           <div className="form-group">
-            <label>썸네일 이미지 (선택)</label>
+            <label>썸네일 이미지 {thumbnailPreview && '(자동 추출됨 - 변경 가능)'}</label>
+            {thumbnailPreview && (
+              <div className="thumbnail-preview">
+                <img src={thumbnailPreview} alt="썸네일 미리보기" />
+              </div>
+            )}
             <div className="file-input-wrapper">
-              <input type="file" accept="image/*" onChange={e => setThumbnailFile(e.target.files[0])} id="thumb-file" />
+              <input type="file" accept="image/*" onChange={handleThumbnailSelect} id="thumb-file" />
               <label htmlFor="thumb-file" className="file-label">
-                {thumbnailFile ? `🖼️ ${thumbnailFile.name}` : '썸네일 이미지 선택'}
+                {thumbnailFile ? `🖼️ ${thumbnailFile.name}` : '다른 썸네일 선택 (선택사항)'}
               </label>
             </div>
           </div>
@@ -206,6 +255,8 @@ function AdminUploadPage() {
               <span>{progress}% - {status}</span>
             </div>
           )}
+
+          {status && !uploading && <p className="status-text">{status}</p>}
 
           <div className="form-actions">
             <button className="btn btn-secondary" onClick={() => navigate('/lectures')} disabled={uploading}>취소</button>

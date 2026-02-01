@@ -145,12 +145,16 @@ def transcribe(audio_file):
 
 
 def extract_and_transcribe(video_file):
-    """비디오에서 오디오 추출 후 텍스트 변환 (대용량 지원)"""
+    """비디오에서 오디오 추출 후 텍스트 변환 + duration + timestamps 추출"""
     try:
         # 비디오를 임시 파일로 저장
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
             video_file.save(temp_video.name)
             temp_video_path = temp_video.name
+        
+        # 1. 비디오 길이 추출
+        duration = int(get_audio_duration(temp_video_path))
+        print(f"📏 비디오 길이: {duration}초")
         
         # 오디오 추출 + 압축
         audio_path = temp_video_path + '_audio.mp3'
@@ -169,35 +173,70 @@ def extract_and_transcribe(video_file):
         # 파일 크기 확인
         file_size = os.path.getsize(audio_path)
         
-        transcripts = []
+        all_text = []
+        all_timestamps = []
+        chunk_offset = 0  # 청크 시작 시간 오프셋
         
         if file_size > MAX_SIZE_BYTES:
             # 청크로 분할
-            chunks = split_audio(audio_path)
-            for chunk_path in chunks:
+            chunk_duration = 300  # 5분
+            chunks = split_audio(audio_path, chunk_duration)
+            
+            for i, chunk_path in enumerate(chunks):
                 with open(chunk_path, "rb") as audio:
+                    # ★ verbose_json으로 timestamp 포함 요청
                     response = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio,
-                        response_format="text"
+                        language="ko",
+                        response_format="verbose_json"
                     )
-                    transcripts.append(response)
+                    
+                    all_text.append(response.text)
+                    
+                    # 각 세그먼트의 timestamp에 오프셋 추가
+                    if hasattr(response, 'segments'):
+                        for seg in response.segments:
+                            all_timestamps.append({
+                                'start': seg.start + chunk_offset,
+                                'end': seg.end + chunk_offset,     
+                                'text': seg.text                    
+                            })
+                
+                chunk_offset += chunk_duration
                 os.unlink(chunk_path)
         else:
             with open(audio_path, "rb") as audio:
+                # ★ verbose_json으로 timestamp 포함 요청
                 response = client.audio.transcriptions.create(
                     model="whisper-1",
                     file=audio,
-                    response_format="text"
+                    response_format="verbose_json"
                 )
-                transcripts.append(response)
+                
+                all_text.append(response.text)
+                
+                if hasattr(response, 'segments'):
+                    for seg in response.segments:
+                        all_timestamps.append({
+                            'start': seg.start,
+                            'end': seg.end,
+                            'text': seg.text
+                        })
         
         # 정리
         for f in [temp_video_path, audio_path]:
             if os.path.exists(f):
                 os.unlink(f)
         
-        return ' '.join(transcripts)
+        print(f"✅ Transcript 추출 완료: {len(all_timestamps)}개 세그먼트")
+        
+        # ★ timestamps도 함께 반환
+        return {
+            'transcript': ' '.join(all_text),
+            'duration': duration,
+            'timestamps': all_timestamps  # ★ 새로 추가
+        }
     
     except Exception as e:
         print(f"❌ 비디오 처리 실패: {e}")

@@ -90,29 +90,51 @@ def generate_quiz():
     try:
         data = request.json
         user_id = data.get('user_id', 'guest')
-        current_time = data.get('current_time', 0)  # 현재 재생 시간
+        current_time = data.get('current_time', 0)
         num_quizzes = data.get('num_quizzes', 1)
-
-        if user_id not in sessions:
-            raise Exception("먼저 영상을 로드하세요.")
-
-        session = sessions[user_id]
-        transcript = session['transcript']
         
-        # 현재 시간까지의 자막만 추출
-        if 'timestamps' in transcript and current_time > 0:
-            filtered_text = youtube_service.get_transcript_until_time(
-                transcript['timestamps'], 
-                current_time
-            )
+        # ★ transcript를 직접 전달받을 수 있도록 수정
+        direct_transcript = data.get('transcript', None)
+
+        # ★ 직접 전달된 transcript가 있으면 그것 사용
+        if direct_transcript:
+            timestamps = data.get('timestamps', [])
+            
+            if timestamps and current_time > 0:
+                # ★ timestamps 기반으로 현재 시간까지 텍스트 추출
+                filtered_text = get_transcript_until_time(timestamps, current_time)
+            else:
+                # timestamps 없으면 전체 사용
+                filtered_text = direct_transcript
         else:
-            filtered_text = transcript['text']
+            # 기존 세션 기반 로직
+            if user_id not in sessions:
+                return jsonify({
+                    'success': False,
+                    'error': '세션을 찾을 수 없습니다.'
+                }), 404
+
+            session = sessions[user_id]
+            transcript = session['transcript']
+            
+            # 현재 시간까지의 자막만 추출
+            if 'timestamps' in transcript and current_time > 0:
+                filtered_text = youtube_service.get_transcript_until_time(
+                    transcript['timestamps'], 
+                    current_time
+                )
+            else:
+                filtered_text = transcript.get('text', '')
+        
+        print(f"📌 퀴즈 생성에 사용할 텍스트 (앞 100자): {filtered_text[:100]}...")
 
         # 퀴즈 생성
         quizzes = quiz_service.generate_quiz_from_segment(filtered_text, num_quizzes)
 
         if not quizzes:
             raise Exception("퀴즈 생성에 실패했습니다.")
+
+        print(f'✅ 퀴즈 생성 완료: {len(quizzes)}개')
 
         return jsonify({
             'success': True,
@@ -121,7 +143,9 @@ def generate_quiz():
         })
 
     except Exception as e:
-        print(f"❌ 에러: {e}")
+        print(f"❌ 퀴즈 생성 에러: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -134,15 +158,30 @@ def schedule_quizzes():
         num_quizzes = data.get('num_quizzes', 5)
 
         if user_id not in sessions:
-            raise Exception("먼저 영상을 로드하세요.")
+            return jsonify({
+                'success': False,
+                'error': '세션을 찾을 수 없습니다.'
+            }), 404
 
-        duration = sessions[user_id]['duration']
+        session = sessions[user_id]
+
+        # 🎯 session에서 duration 가져오기
+        duration = session.get('duration', 0)
+        
+        if not duration or duration <= 0:
+            print(f"❌ duration이 없거나 0입니다: {duration}")
+            return jsonify({
+                'success': False,
+                'error': '영상 길이 정보가 없습니다.'
+            }), 400
         
         # 10분 미만이면 퀴즈 1개 고정
         if duration < 600:
             num_quizzes = 1
 
         quiz_times = quiz_service.calculate_quiz_times(duration, num_quizzes)
+
+        print(f'✅ 퀴즈 타임 생성 완료: {quiz_times}')
 
         return jsonify({
             'success': True,
@@ -152,6 +191,8 @@ def schedule_quizzes():
 
     except Exception as e:
         print(f"❌ 에러: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -235,7 +276,6 @@ def transcribe_audio():
         
         audio_file = request.files['audio']
         
-        # 바로 transcribe 함수로 전달
         transcript = whisper_service.transcribe(audio_file)
         
         return jsonify({
@@ -258,18 +298,20 @@ def extract_video_audio():
         video_file = request.files['video']
         user_id = request.form.get('user_id', 'guest')
         
-        transcript = whisper_service.extract_and_transcribe(video_file)
+        result = whisper_service.extract_and_transcribe(video_file)
         
         sessions[user_id] = {
             'video_file': video_file.filename,
-            'transcript': {'text': transcript},
+            'transcript': {'text': result['transcript']},
             'current_score': 0,
             'conversation_history': []
         }
         
         return jsonify({
             'success': True,
-            'transcript': transcript
+            'transcript': result['transcript'],
+            'duration': result['duration'],
+            'timestamps': result['timestamps']
         })
 
     except Exception as e:
@@ -434,15 +476,43 @@ def update_ranking_visibility():
 
 
 # ==================== User API ====================
-@app.route('/api/user/profile', methods=['GET'])
-def get_user_profile():
-    """사용자 프로필"""
-    user_id = request.args.get('user_id', 'guest')
-    if user_id == 'guest':
-        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+@app.route('/api/user/profile', methods=['GET', 'POST'])
+def user_profile():
+    """사용자 프로필 조회/생성"""
+    if request.method == 'GET':
+        user_id = request.args.get('user_id', 'guest')
+        if user_id == 'guest':
+            return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+        
+        profile = firebase_service.get_user_profile(user_id)
+        return jsonify({'success': bool(profile), 'profile': profile})
     
-    profile = firebase_service.get_user_profile(user_id)
-    return jsonify({'success': bool(profile), 'profile': profile})
+    elif request.method == 'POST':
+        # 회원가입 시 프로필 생성
+        try:
+            data = request.json
+            user_id = data.get('user_id')
+            email = data.get('email', '')
+            display_name = data.get('displayName', '')
+            department = data.get('department', '')
+            gender = data.get('gender', '')
+            year = data.get('year', '')
+            
+            if not user_id:
+                return jsonify({'success': False, 'message': 'user_id가 필요합니다.'}), 400
+            
+            profile = firebase_service.create_user_profile(
+                user_id=user_id,
+                email=email,
+                display_name=display_name,
+                department=department,
+                gender=gender,
+                year=year
+            )
+            
+            return jsonify({'success': bool(profile), 'profile': profile})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/user/watched', methods=['GET'])
@@ -508,15 +578,49 @@ def get_lecture():
 
 @app.route('/api/lectures/upload', methods=['POST'])
 def upload_lecture():
-    """강의 업로드"""
     try:
-        data = request.json
-        lecture_id = firebase_service.add_uploaded_lecture(data)
-        if lecture_id:
-            return jsonify({'success': True, 'lecture_id': lecture_id})
-        return jsonify({'success': False, 'error': '업로드 실패'}), 500
+        # 비디오 파일 받기
+        video_file = request.files.get('video')
+        title = request.form.get('title', '')
+        description = request.form.get('description', '')
+        
+        if not video_file:
+            return jsonify({'success': False, 'message': '비디오 파일이 필요합니다'})
+        
+        # 임시 저장
+        temp_video = f'/tmp/{video_file.filename}'
+        temp_thumb = f'/tmp/thumb_{video_file.filename}.jpg'
+        video_file.save(temp_video)
+        
+        # ffmpeg로 썸네일 추출 (5초 지점)
+        subprocess.run([
+            'ffmpeg', '-i', temp_video, '-ss', '00:00:05',
+            '-vframes', '1', '-q:v', '2', temp_thumb, '-y'
+        ], capture_output=True)
+        
+        # Firebase Storage에 업로드
+        video_url = firebase_service.upload_file_to_storage(temp_video, f'lectures/{video_file.filename}')
+        thumbnail_url = firebase_service.upload_file_to_storage(temp_thumb, f'thumbnails/{video_file.filename}.jpg')
+        
+        # Firestore에 저장
+        lecture_data = {
+            'title': title,
+            'description': description,
+            'videoUrl': video_url,
+            'thumbnailUrl': thumbnail_url,
+            'transcript': result['transcript'],
+            'duration': result['duration'],
+            'timestamps': result.get('timestamps', [])
+        }
+        lecture_id = firebase_service.add_uploaded_lecture(lecture_data)
+        
+        # 임시 파일 삭제
+        os.remove(temp_video)
+        os.remove(temp_thumb)
+        
+        return jsonify({'success': True, 'lecture_id': lecture_id})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'message': str(e)})
 
 
 @app.route('/api/lectures/delete', methods=['POST'])
@@ -559,19 +663,100 @@ def set_lecture_session():
         user_id = data.get('user_id', 'guest')
         transcript = data.get('transcript', '')
         lecture_id = data.get('lecture_id', '')
+        duration = data.get('duration', 0)
+
         
+        # user_id 기반 세션 저장
         sessions[user_id] = {
             'video_id': f'lecture_{lecture_id}',
             'transcript': {'text': transcript},
-            'duration': 0,
+            'duration': duration,
             'title': '',
             'current_score': 0,
             'conversation_history': []
         }
+
         return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f'❌ 세션 생성 실패: {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== Offline Transcripts API ====================
+@app.route('/api/offline/transcripts/save', methods=['POST'])
+def save_offline_transcript():
+    """녹취록 저장"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        
+        if not user_id or user_id == 'guest':
+            return jsonify({'success': False, 'error': '로그인이 필요합니다.'}), 401
+        
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        subject = data.get('subject', '')
+        
+        if not title:
+            return jsonify({'success': False, 'error': '제목을 입력해주세요.'}), 400
+        if not content:
+            return jsonify({'success': False, 'error': '녹취록 내용이 없습니다.'}), 400
+        
+        transcript_id = firebase_service.save_offline_transcript(user_id, title, content, subject)
+        
+        if transcript_id:
+            return jsonify({'success': True, 'transcript_id': transcript_id})
+        return jsonify({'success': False, 'error': '저장 실패'}), 500
+        
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+@app.route('/api/offline/transcripts/list', methods=['GET'])
+def get_offline_transcripts():
+    """녹취록 목록"""
+    user_id = request.args.get('user_id', 'guest')
+    if user_id == 'guest':
+        return jsonify({'success': True, 'transcripts': []})
+    
+    transcripts = firebase_service.get_offline_transcripts(user_id)
+    return jsonify({'success': True, 'transcripts': transcripts})
+
+
+@app.route('/api/offline/transcripts/get', methods=['GET'])
+def get_offline_transcript():
+    """개별 녹취록 조회"""
+    transcript_id = request.args.get('transcript_id')
+    if not transcript_id:
+        return jsonify({'success': False, 'error': 'ID가 필요합니다.'}), 400
+    
+    transcript = firebase_service.get_offline_transcript_by_id(transcript_id)
+    if transcript:
+        return jsonify({'success': True, 'transcript': transcript})
+    return jsonify({'success': False, 'error': '찾을 수 없습니다.'}), 404
+
+
+@app.route('/api/offline/transcripts/delete', methods=['POST'])
+def delete_offline_transcript():
+    """녹취록 삭제"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        transcript_id = data.get('transcript_id')
+        
+        if not user_id or user_id == 'guest':
+            return jsonify({'success': False, 'error': '로그인이 필요합니다.'}), 401
+        
+        if firebase_service.delete_offline_transcript(transcript_id, user_id):
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': '삭제 실패'}), 500
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+        
 
 # ==================== Messages API (쪽지) ====================
 @app.route('/api/messages/list', methods=['GET'])

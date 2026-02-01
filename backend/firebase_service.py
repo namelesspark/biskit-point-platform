@@ -1,6 +1,7 @@
 # backend/firebase_service.py
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 from datetime import datetime
 import os
 
@@ -16,6 +17,7 @@ if not firebase_admin._apps:
 
 try:
     db = firestore.client()
+    print("✅ Firebase 연결 성공")
 except:
     db = None
     print("⚠️ Firebase 연결 실패 - 로컬 모드")
@@ -31,12 +33,15 @@ def get_user_profile(user_id):
         return None
 
 
-def create_user_profile(user_id, email, display_name):
+def create_user_profile(user_id, email, display_name, department='', gender='', year=''):
     if not db: return None
     try:
         profile_data = {
             'email': email,
             'displayName': display_name,
+            'department': department,
+            'gender': gender,
+            'year': year,
             'createdAt': datetime.now(),
             'totalPoints': 0,
             'showInRanking': True,
@@ -167,7 +172,7 @@ def get_rankings(limit=50):
     if not db: return []
     try:
         docs = db.collection('users')\
-            .where('showInRanking', '==', True)\
+            .where(filter=FieldFilter('showInRanking', '==', True))\
             .order_by('totalPoints', direction=firestore.Query.DESCENDING)\
             .limit(limit).stream()
         
@@ -185,7 +190,7 @@ def get_user_rank(user_id):
         
         user_data = user_doc.to_dict()
         user_points = user_data.get('totalPoints', 0)
-        higher_count = db.collection('users').where('totalPoints', '>', user_points).count().get()[0][0].value
+        higher_count = db.collection('users').where(filter=FieldFilter('totalPoints', '>', user_points)).count().get()
         
         return {'rank': higher_count + 1, 'totalPoints': user_points, 'showInRanking': user_data.get('showInRanking', True)}
     except:
@@ -273,10 +278,10 @@ def get_messages(user_id, msg_type='received'):
     if not db: return []
     try:
         if msg_type == 'received':
-            docs = db.collection('messages').where('receiverId', '==', user_id)\
+            docs = db.collection('messages').where(filter=FieldFilter('receiverId', '==', user_id))\
                 .order_by('createdAt', direction=firestore.Query.DESCENDING).stream()
         else:
-            docs = db.collection('messages').where('senderId', '==', user_id)\
+            docs = db.collection('messages').where(filter=FieldFilter('senderId', '==', user_id))\
                 .order_by('createdAt', direction=firestore.Query.DESCENDING).stream()
         
         messages = []
@@ -313,8 +318,8 @@ def get_unread_count(user_id):
     if not db: return 0
     try:
         count = db.collection('messages')\
-            .where('receiverId', '==', user_id)\
-            .where('isRead', '==', False)\
+            .where(filter=FieldFilter('receiverId', '==', user_id))\
+            .where(filter=FieldFilter('isRead', '==', False))\
             .count().get()[0][0].value
         return count
     except:
@@ -377,5 +382,72 @@ def scrap_post(user_id, post_id):
             'scraps': firestore.Increment(1)
         })
         return True
+    except:
+        return False
+
+# ==================== 오프라인 녹취록 ====================
+def save_offline_transcript(user_id, title, content, subject=''):
+    """오프라인 녹취록 저장"""
+    if not db: return None
+    try:
+        transcript_data = {
+            'userId': user_id,
+            'title': title,
+            'content': content,
+            'subject': subject,
+            'charCount': len(content),
+            'createdAt': datetime.now()
+        }
+        doc_ref = db.collection('offlineTranscripts').add(transcript_data)
+        return doc_ref[1].id
+    except Exception as e:
+        print(f"녹취록 저장 실패: {e}")
+        return None
+
+
+def get_offline_transcripts(user_id):
+    """사용자의 녹취록 목록 조회"""
+    if not db: return []
+    try:
+        docs = db.collection('offlineTranscripts')\
+            .where(filter=FieldFilter('userId', '==', user_id))\
+            .order_by('createdAt', direction=firestore.Query.DESCENDING)\
+            .stream()
+        
+        return [{
+            'id': doc.id,
+            **doc.to_dict(),
+            'createdAt': doc.to_dict().get('createdAt').isoformat() if doc.to_dict().get('createdAt') else None
+        } for doc in docs]
+    except Exception as e:
+        print(f"녹취록 조회 실패: {e}")
+        return []
+
+
+def get_offline_transcript_by_id(transcript_id):
+    """개별 녹취록 조회"""
+    if not db: return None
+    try:
+        doc = db.collection('offlineTranscripts').document(transcript_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            if data.get('createdAt'):
+                data['createdAt'] = data['createdAt'].isoformat()
+            return data
+        return None
+    except:
+        return None
+
+
+def delete_offline_transcript(transcript_id, user_id):
+    """녹취록 삭제"""
+    if not db: return False
+    try:
+        doc = db.collection('offlineTranscripts').document(transcript_id).get()
+        if doc.exists and doc.to_dict().get('userId') == user_id:
+            db.collection('offlineTranscripts').document(transcript_id).delete()
+            return True
+        return False
     except:
         return False

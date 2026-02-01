@@ -28,8 +28,14 @@ function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
-      <Header variant="main" />
+    <div className="auth-page"
+      style={{ 
+        backgroundImage: "url('/images/kit-login-bg.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
+      <Header variant="auth" />
       <div className="auth-container">
         <div className="auth-card">
           <h2>로그인</h2>

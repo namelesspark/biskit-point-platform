@@ -18,11 +18,10 @@ function Header({ variant = 'main' }) {
   const [showMessages, setShowMessages] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // 읽지 않은 쪽지 수 조회
   useEffect(() => {
     if (userId && userId !== 'guest') {
       fetchUnreadCount();
-      const interval = setInterval(fetchUnreadCount, 30000); // 30초마다 갱신
+      const interval = setInterval(fetchUnreadCount, 30000);
       return () => clearInterval(interval);
     }
   }, [userId]);
@@ -42,6 +41,21 @@ function Header({ variant = 'main' }) {
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
+  // 인증 페이지 헤더 (로그인/회원가입) - 버튼 없음
+  if (variant === 'auth') {
+    return (
+      <header className="header header-main">
+        <div className="logo-container">
+          <Link to="/">
+            <img src="/images/kit-logo.png" alt="KIT" className="kit-logo" />
+          </Link>
+        </div>
+        <h1 className="main-title">BISKIT POINT</h1>
+        <div className="header-buttons"></div>
+      </header>
+    );
+  }
+
   // 메인 헤더 (홈페이지)
   if (variant === 'main') {
     return (
@@ -56,7 +70,7 @@ function Header({ variant = 'main' }) {
           {user ? (
             <>
               <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>
-                대시보드
+                DASH BOARD
               </button>
               <button className="btn btn-secondary" onClick={handleLogout}>
                 로그아웃
@@ -112,11 +126,11 @@ function Header({ variant = 'main' }) {
           📬
           {unreadCount > 0 && <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
         </button>
-        <button className="icon-btn" onClick={() => setShowSettings(true)} title="설정">
-          ⚙️
-        </button>
         <button className="icon-btn" onClick={() => setShowProfile(true)} title="프로필">
           👤
+        </button>
+        <button className="icon-btn" onClick={() => setShowSettings(true)} title="설정">
+          ⚙️
         </button>
         <button className="btn btn-small btn-secondary" onClick={handleLogout}>
           로그아웃

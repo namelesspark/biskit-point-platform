@@ -64,10 +64,21 @@ def get_transcript_from_youtube(video_id):
         return None
 
 
-def get_transcript_until_time(timestamps, end_time):
-    """특정 시간까지의 자막만 추출 (퀴즈용)"""
-    filtered = [t for t in timestamps if t['start'] <= end_time]
-    return ' '.join([t['text'] for t in filtered])
+def get_transcript_until_time(timestamps, current_time):
+    """timestamps 기반으로 현재 시간까지의 텍스트만 추출"""
+    if not timestamps:
+        return ""
+    
+    texts = []
+    for seg in timestamps:
+        if seg['end'] <= current_time:
+            texts.append(seg['text'])
+        elif seg['start'] < current_time:
+            # 중간에 걸친 세그먼트도 포함
+            texts.append(seg['text'])
+            break
+    
+    return ' '.join(texts)
 
 
 def get_video_info(video_id):

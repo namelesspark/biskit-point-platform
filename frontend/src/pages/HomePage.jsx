@@ -1,73 +1,107 @@
 // src/pages/HomePage.jsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
 import { useAuth } from '../hooks/useAuth';
 
 function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const features = [
-    { icon: '📺', title: 'YouTube 학습', desc: 'YouTube 강의를 AI가 분석하고 퀴즈를 생성합니다.', path: '/youtube' },
-    { icon: '📁', title: '업로드 강의', desc: '직접 업로드한 강의 영상을 학습합니다.', path: '/upload' },
-    { icon: '🎙️', title: '오프라인 보조', desc: '실시간 강의를 녹음하고 텍스트로 변환합니다.', path: '/offline' }
-  ];
-
   return (
-    <div className="home-page">
-      <Header variant="main" />
+    <div className="home-page-new">
+      {/* 헤더 */}
+      <header className="home-header">
+        <div className="header-left">
+          <img src="/images/kit-logo.png" alt="금오공과대학교" className="kit-logo" />
+        </div>
+        <div className="header-center">
+          <h1 className="site-title">BISKIT POINT</h1>
+        </div>
+        <div className="header-right">
+          {user ? (
+            <button className="btn-header" onClick={() => navigate('/dashboard')}>대시보드</button>
+          ) : (
+            <>
+              <button className="btn-header btn-signup" onClick={() => navigate('/signup')}>회원가입</button>
+              <button className="btn-header btn-login" onClick={() => navigate('/login')}>로그인</button>
+            </>
+          )}
+        </div>
+      </header>
 
-      <section className="hero-section">
+      {/* 히어로 섹션 */}
+      <section className="hero-new">
         <div className="hero-bg">
-          <img src="/images/kit-pond.png" alt="KIT Campus" />
+          <img src="/images/kit-library.png" alt="KIT Library" />
           <div className="hero-overlay"></div>
         </div>
-        <div className="hero-content">
-          <h1>AI 기반 학습 플랫폼</h1>
-          <p>BISKIT POINT와 함께 효율적인 학습을 시작하세요</p>
-          <button className="btn btn-hero" onClick={() => navigate(user ? '/dashboard' : '/signup')}>
-            {user ? '학습 시작하기' : '무료로 시작하기'}
-          </button>
+        <div className="hero-text">
+          <h2>AI와 함께하는 스마트 학습</h2>
         </div>
       </section>
 
-      <section className="features-section">
-        <h2>주요 기능</h2>
-        <div className="features-grid">
-          {features.map((feature, i) => (
-            <div key={i} className="feature-card" onClick={() => user ? navigate(feature.path) : navigate('/login')}>
-              <div className="feature-icon">{feature.icon}</div>
-              <h3>{feature.title}</h3>
-              <p>{feature.desc}</p>
+      {/* About 섹션 */}
+      <section className="about-new">
+        <div className="about-content">
+          <h2>About</h2>
+          <p className="about-main">BISKIT POINT는 금오공대 학생들을 위한 AI 기반 학습 플랫폼입니다.</p>
+          <ul className="about-list">
+            <li>· YouTube 강의 자막을 AI가 자동 분석</li>
+            <li>· 맞춤형 퀴즈로 학습 효과 극대화</li>
+            <li>· 실시간 AI 챗봇으로 즉각적인 피드백</li>
+            <li>· 랭킹 시스템으로 학습 동기부여</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* 기능 섹션 - 하나의 카드로 묶기 */}
+      <section className="features-wrapper">
+        <div className="features-card">
+          {/* AI로 학습 */}
+          <div className="feature-row">
+            <div className="feature-text">
+              <h3>AI로 학습</h3>
+              <p>YouTube 영상이나 업로드한 강의를 AI가 분석하여 핵심 내용을 파악하고, 맞춤형 퀴즈를 생성합니다.</p>
+              <button className="btn-feature" onClick={() => navigate(user ? '/youtube' : '/login')}>
+                학습 시작하기
+              </button>
             </div>
-          ))}
+            <div className="feature-media">
+              <video autoPlay loop muted playsInline>
+                <source src="/videos/feature AI.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </div>
+
+          {/* 음성 녹음 기능 */}
+          <div className="feature-row reverse">
+            <div className="feature-media">
+              <video autoPlay loop muted playsInline>
+                <source src="/videos/STT convolution.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <div className="feature-text">
+              <h3>음성 녹음 기능</h3>
+              <p>오프라인 강의를 실시간으로 녹음하고, Whisper AI가 텍스트로 변환하여 학습을 도와줍니다.</p>
+              <button className="btn-feature" onClick={() => navigate(user ? '/offline' : '/login')}>
+                녹음 시작하기
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="about-section">
-        <h2>왜 BISKIT POINT인가요?</h2>
-        <div className="about-grid">
-          <div className="about-item">
-            <span>🧠</span>
-            <h4>AI 퀴즈 생성</h4>
-            <p>강의 내용을 분석해 자동으로 퀴즈를 생성합니다.</p>
-          </div>
-          <div className="about-item">
-            <span>💬</span>
-            <h4>AI 학습 도우미</h4>
-            <p>강의 내용에 대해 궁금한 점을 바로 질문하세요.</p>
-          </div>
-          <div className="about-item">
-            <span>🏆</span>
-            <h4>포인트 시스템</h4>
-            <p>학습하면서 포인트를 획득하고 랭킹에 도전하세요.</p>
+      {/* 푸터 */}
+      <footer className="home-footer">
+        <div className="footer-content">
+          <div className="footer-title">DX / AX 프로젝트</div>
+          <div className="footer-divider"></div>
+          <div className="footer-info">
+            <p>© 2025 All Rights Reserved</p>
+            <p>금오공과대학교 교수학습혁신센터</p>
           </div>
         </div>
-      </section>
-
-      <Footer />
+      </footer>
     </div>
   );
 }

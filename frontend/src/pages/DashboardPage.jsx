@@ -13,6 +13,7 @@ function DashboardPage() {
   const [rankings, setRankings] = useState([]);
   const [lectures, setLectures] = useState([]);
   const [communityPosts, setCommunityPosts] = useState([]);
+  const [profile, setProfile] = useState(null);  // 프로필 정보 추가
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -22,13 +23,27 @@ function DashboardPage() {
       loadData();
       setDataLoaded(true);
     }
-  }, [userId, dataLoaded, loading]);
+  }, [userId, authLoading, dataLoaded]);
+
 
   const loadData = async () => {
     setLoading(true);
     console.log('📍 API_BASE_URL:', API_ENDPOINTS.BOOKMARK_LIST);
     console.log('📍 userId:', userId);
     try {
+      // 프로필 정보 로드
+      if (userId && userId !== 'guest') {
+        try {
+          const profileRes = await fetch(`${API_ENDPOINTS.USER_PROFILE}?user_id=${userId}`);
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData.success) setProfile(profileData.profile);
+          }
+        } catch (e) {
+          console.log('프로필 로드 실패 (무시)');
+        }
+      }
+
       // 즐겨찾기 - 에러 무시
       if (userId && userId !== 'guest') {
         try {
@@ -78,6 +93,30 @@ function DashboardPage() {
     }
   };
 
+  // 즐겨찾기 클릭 핸들러 - URL 경로 방식으로 수정
+  const handleBookmarkClick = (item) => {
+    if (item.videoType === 'youtube') {
+      navigate(`/youtube/${item.videoId}`);
+    } else if (item.videoType === 'lecture') {
+      navigate(`/lectures/${item.videoId.replace('lecture_', '')}`);
+    } else {
+      navigate(`/upload/${item.videoId}`);
+    }
+  };
+
+  // 강의 클릭 핸들러 - lectures 페이지로 이동
+  const handleLectureClick = (lecture) => {
+    navigate(`/lectures/${lecture.id}`);
+  };
+
+  // 사용자 이름 가져오기 (프로필 > Firebase Auth > 기본값 순)
+  const getUserDisplayName = () => {
+    if (profile?.displayName) return profile.displayName;
+    if (user?.displayName) return user.displayName;
+    if (user?.email) return user.email.split('@')[0];
+    return '학습자';
+  };
+
   const learningModes = [
     { icon: '📺', title: 'YouTube 학습', desc: 'YouTube URL로 강의 시청', path: '/youtube' },
     { icon: '📁', title: '업로드 강의', desc: '영상 파일 업로드하여 학습', path: '/upload' },
@@ -91,7 +130,7 @@ function DashboardPage() {
       <main className="dashboard-content">
         {/* 환영 섹션 */}
         <section className="welcome-section">
-          <h1>안녕하세요, {user?.displayName || '학습자'}님! 👋</h1>
+          <h1>안녕하세요, {getUserDisplayName()}님! 👋</h1>
           <p>오늘도 즐거운 학습 되세요.</p>
         </section>
 
@@ -145,7 +184,7 @@ function DashboardPage() {
                 <div 
                   key={item.videoId || i} 
                   className={`content-card ${item.videoType}`}
-                  onClick={() => navigate(item.videoType === 'youtube' ? `/youtube` : '/upload')}
+                  onClick={() => handleBookmarkClick(item)}
                 >
                   <div className="card-thumbnail">
                     {item.thumbnailUrl ? (
@@ -169,13 +208,13 @@ function DashboardPage() {
         <section className="section-block">
           <div className="section-header">
             <h2 className="section-title">업로드된 강의</h2>
-            <button className="view-all-btn" onClick={() => navigate('/upload')}>전체 보기</button>
+            <button className="view-all-btn" onClick={() => navigate('/lectures')}>전체 보기</button>
           </div>
           <div className="card-grid three-col">
             {lectures.length === 0 ? (
               <>
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="content-card lecture" onClick={() => navigate('/upload')}>
+                  <div key={i} className="content-card lecture" onClick={() => navigate('/lectures')}>
                     <div className="card-thumbnail orange">
                       <div className="file-icon">⏸</div>
                     </div>
@@ -187,12 +226,20 @@ function DashboardPage() {
               </>
             ) : (
               lectures.map((lecture, i) => (
-                <div key={lecture.id || i} className="content-card lecture" onClick={() => navigate(`/upload/${lecture.id}`)}>
-                  <div className="card-thumbnail orange">
-                    <div className="file-icon">⏸</div>
+                <div 
+                  key={lecture.id || i} 
+                  className="content-card lecture" 
+                  onClick={() => handleLectureClick(lecture)}
+                >
+                  <div className={`card-thumbnail ${!lecture.thumbnailUrl ? 'orange' : ''}`}>
+                    {lecture.thumbnailUrl ? (
+                      <img src={lecture.thumbnailUrl} alt={lecture.title} />
+                    ) : (
+                      <div className="file-icon">⏸</div>
+                    )}
                   </div>
                   <h4>{lecture.title || '영상 제목'}</h4>
-                  <p>{lecture.summary || '추출된 음성 파일 요약 내용'}</p>
+                  <p>{lecture.description || '추출된 음성 파일 요약 내용'}</p>
                   <span className="card-link">학습하기 →</span>
                 </div>
               ))

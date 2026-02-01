@@ -1,5 +1,6 @@
 // src/config/api.js
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://11bf41f6df7a.ngrok-free.app ';
+//'http://172.25.109.44:5000';
 
 export const API_ENDPOINTS = {
   // YouTube
@@ -47,7 +48,14 @@ export const API_ENDPOINTS = {
   LECTURES_UPLOAD: `${API_BASE_URL}/api/lectures/upload`,
   LECTURES_DELETE: `${API_BASE_URL}/api/lectures/delete`,
   LECTURES_SESSION: `${API_BASE_URL}/api/lectures/session`,
-  
+
+  // Offline
+  OFFLINE_SESSION: `${API_BASE_URL}/api/offline/session`,
+  OFFLINE_TRANSCRIPTS_SAVE: `${API_BASE_URL}/api/offline/transcripts/save`,
+  OFFLINE_TRANSCRIPTS_LIST: `${API_BASE_URL}/api/offline/transcripts/list`,
+  OFFLINE_TRANSCRIPTS_GET: `${API_BASE_URL}/api/offline/transcripts/get`,
+  OFFLINE_TRANSCRIPTS_DELETE: `${API_BASE_URL}/api/offline/transcripts/delete`,
+    
   // Messages (쪽지)
   MESSAGES_LIST: `${API_BASE_URL}/api/messages/list`,
   MESSAGES_SEND: `${API_BASE_URL}/api/messages/send`,
